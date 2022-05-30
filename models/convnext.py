@@ -171,7 +171,7 @@ model_urls = {
 
 @register_model
 def convnext_tiny(num_input_images=1, pretrained=False, in_22k=False, **kwargs):
-    model = ConvNeXt(depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
+    model = ConvNeXt(in_chans = num_input_images * 3, depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
         url = model_urls['convnext_tiny_22k'] if in_22k else model_urls['convnext_tiny_1k']
         checkpoint = torch.hub.load_state_dict_from_url(url=url, map_location="cpu", check_hash=True)
