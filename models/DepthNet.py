@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from convnext import convnext_small
+from .convnext import convnext_small
 
 
 class ConvBlock(nn.Module):

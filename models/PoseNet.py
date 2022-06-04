@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from convnext import convnext_tiny, convnext_small
+from .convnext import convnext_tiny, convnext_small
 
 class PoseDecoder(nn.Module):
     def __init__(self, num_frames_to_predict_for=1):
