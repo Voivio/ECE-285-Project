@@ -3,6 +3,7 @@ import torch
 import random
 import numpy as np
 from PIL import Image
+import cv2
 
 '''Set of tranform random routines that takes list of inputs as arguments,
 in order to have random but coherent transformations.'''
@@ -29,6 +30,16 @@ class Normalize(object):
                 t.sub_(m).div_(s)
         return images, intrinsics
 
+class Resize(object):
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, images, intrinsics):
+        rimages = []
+        for im in images:
+            im = cv2.resize(im, dsize=self.size)
+            rimages.append(im)
+        return rimages, intrinsics
 
 class ArrayToTensor(object):
     """Converts a list of numpy.ndarray (H x W x C) along with a intrinsics matrix to a list of torch.FloatTensor of shape (C x H x W) with a intrinsics tensor."""

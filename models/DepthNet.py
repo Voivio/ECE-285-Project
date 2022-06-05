@@ -112,4 +112,4 @@ if __name__ == "__main__":
 
     tgt_depth = model(tgt_img)
 
-    print(tgt_depth[0].size())
+    print(tgt_depth.size())

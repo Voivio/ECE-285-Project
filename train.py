@@ -14,10 +14,11 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Deep VO with Sequential Learning Optimization')
 
-parser.add_argument('--dataroot', type=str, help='path to dataset')
+parser.add_argument('--dataroot', type=str, default = 'E:\sfm_kitti\small_256',help='path to dataset')
 parser.add_argument('--sequence-length', type=int, help='sequence length for training', default=3)
 parser.add_argument('--epochId', type=int, default=200, help='The number of epochs being trained')
-parser.add_argument('--batch_size', type=int, default= 4, help='The size of a batch' )
+parser.add_argument('--batch_size', type=int, default= 2, help='The size of a train batch' )
+parser.add_argument('--valbatch_size', type=int, default= 4, help='The size of a val batch' )
 parser.add_argument('--initLR', type=float, default=1e-4, help='The initial learning rate')
 parser.add_argument('--multi_step_LR', action='store_true', default=False, help='The epoch to decrease learning rate')
 parser.add_argument('--seed', default=0, type=int, help='seed for random functions, and network initialization')
@@ -28,17 +29,25 @@ parser.add_argument('--dataset', type=str, choices=['kitti'], default='kitti', h
 parser.add_argument('--with_gt', action='store_true', default=False, help='use ground truth for validation')
 parser.add_argument('--with_pretrain', type=bool, default = True, help='use ground truth for validation')
 parser.add_argument('--weight_decay', '--wd', default=0, type=float, metavar='W', help='weight decay')
-parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=1)
+parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=4)
 parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W', default=0.1)
 parser.add_argument('-c', '--geometry-consistency-weight', type=float, help='weight for depth consistency loss', metavar='W', default=0.5)
+parser.add_argument('--with-ssim', type=int, default=1, help='with ssim or not')
+parser.add_argument('--with-mask', type=int, default=1, help='with the the mask for moving objects and occlusions or not')
+parser.add_argument('--with-auto-mask', type=int,  default=0, help='with the the mask for stationary points')
+parser.add_argument('--padding-mode', type=str, choices=['zeros', 'border'], default='zeros',
+                    help='padding mode for image warping : this is important for photometric differenciation when going outside target image.'
+                         ' zeros will null gradients outside target image.'
+                         ' border will only null gradients of the coordinate outside (x or y)')
 
 iteration = 0
+best_error = -1
 
 def main():
     args = parser.parse_args()
 
     # Initialize tensorboard
-    timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
+    timestamp = datetime.datetime.now().strftime("%m_%d_%H%M")
     save_path = 'run/' + args.experiment + timestamp
     writer = SummaryWriter(save_path)
     
@@ -46,7 +55,7 @@ def main():
     torch.autograd.set_detect_anomaly(True)
 
     torch.manual_seed(args.seed)
-    torch.cude.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
     cudnn.deterministic = True
     cudnn.benchmark = True
@@ -58,6 +67,7 @@ def main():
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
         custom_transforms.RandomScaleCrop(),
+        custom_transforms.Resize((256,256)),
         custom_transforms.ArrayToTensor(),
         normalize
     ])
@@ -76,13 +86,13 @@ def main():
     if args.with_gt:
         from datasets.validation_folders import ValidationSet
         val_set = ValidationSet(
-            args.data,
+            args.dataroot,
             transform=valid_transform,
             dataset=args.dataset
         )
     else:
         val_set = SequenceFolder(
-            args.data,
+            args.dataroot,
             transform=valid_transform,
             seed=args.seed,
             train=False,
@@ -97,13 +107,13 @@ def main():
         train_set, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(
-        val_set, batch_size=args.batch_size, shuffle=False,
+        val_set, batch_size=args.valbatch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
     # create model
     # Move network and containers to gpu
     dep_net = models.DepthNet(args.with_pretrain).to(device)
-    pose_net = models.PoseResNet(args.with_pretrain).to(device)
+    pose_net = models.PoseNet(args.with_pretrain).to(device)
 
     dep_net = torch.nn.DataParallel(dep_net)
     pose_net = torch.nn.DataParallel(pose_net)
@@ -118,13 +128,15 @@ def main():
     if args.multi_step_LR:
         lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [0.6*args.epochId, 0.8*args.epochId])
 
-
+    global best_error
     for epoch in range(args.epochId):
         train_loss = train(args, device, train_loader, dep_net, pose_net, optimizer, epoch, writer)
         if args.with_gt:
             errors, error_names = validate_with_gt(args, device, val_loader, dep_net, epoch, writer)
         else:
             errors, error_names = validate_without_gt(args, device, val_loader, dep_net, pose_net, epoch, writer)
+
+        lr_scheduler.step()
 
         decisive_error = errors[1]
         if best_error < 0:
@@ -162,10 +174,11 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
         intrinsics_inv = intrinsics_inv.to(device)
         # compute output
         tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
+
         poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
 
         loss_1, loss_3 = compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, ref_depths,
-                                                         poses, poses_inv, args.num_scales, args.with_ssim,
+                                                         poses, poses_inv, args.with_ssim,
                                                          args.with_mask, args.with_auto_mask, args.padding_mode)
 
         loss_2 = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
@@ -178,6 +191,10 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
         total_loss3 += loss_3
         # record loss
         if (iteration+1)%args.reco_frq == 0:
+            total_loss /= args.reco_frq
+            total_loss1 /= args.reco_frq
+            total_loss2 /= args.reco_frq
+            total_loss3 /= args.reco_frq
             print(f"training loss: {total_loss:>7f}  Epoch:{epoch:>d}  Curr Iter: [{ iteration+1:>5d}]")
             # ...log the running loss
             writer.add_scalar('training mixed loss',
@@ -286,10 +303,10 @@ def validate_without_gt(args, device, val_loader, disp_net, pose_net, epoch, wri
                       epoch)
 
     writer.add_image('val Dispnet Output Normalized',
-                                    tensor2array(1/tgt_depth[0][0], max_value=None, colormap='magma'),
+                                    tensor2array(1/tgt_depth[0], max_value=None, colormap='magma'),
                                     epoch)
     writer.add_image('val Depth Output',
-                                    tensor2array(tgt_depth[0][0], max_value=10),
+                                    tensor2array(tgt_depth[0], max_value=10),
                                     epoch)
 
     return [total_loss, total_loss1,total_loss2,total_loss3], ['Total loss', 'Photo loss', 'Smooth loss', 'Consistency loss']
@@ -312,10 +329,10 @@ def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
         output_disp = disp_net(tgt_img)
         output_depth = 1 / output_disp[:, 0]
 
-        writer[i].add_image('val Dispnet Output Normalized',
+        writer.add_image('val Dispnet Output Normalized',
                                     tensor2array(output_disp[0], max_value=None, colormap='magma'),
                                     epoch)
-        writer[i].add_image('val Depth Output',
+        writer.add_image('val Depth Output',
                                     tensor2array(output_depth[0], max_value=10),
                                     epoch)
 

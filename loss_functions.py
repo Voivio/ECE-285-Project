@@ -47,14 +47,14 @@ compute_ssim_loss = SSIM().to(device)
 
 # photometric loss
 # geometry consistency loss
-def compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, ref_depths, poses, poses_inv, max_scales, with_ssim, with_mask, with_auto_mask, padding_mode):
+def compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, ref_depths, poses, poses_inv, with_ssim, with_mask, with_auto_mask, padding_mode):
 
     photo_loss = 0
     geometry_loss = 0
 
-    num_scales = min(len(tgt_depth), max_scales)
+    # num_scales = min(len(tgt_depth), 1)
     for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, poses, poses_inv):
-        for s in range(num_scales):
+        # for s in range(num_scales):
 
             # # downsample img
             # b, _, h, w = tgt_depth[s].size()
@@ -74,12 +74,12 @@ def compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, re
             tgt_img_scaled = tgt_img
             ref_img_scaled = ref_img
             intrinsic_scaled = intrinsics
-            if s == 0:
-                tgt_depth_scaled = tgt_depth[s]
-                ref_depth_scaled = ref_depth[s]
-            else:
-                tgt_depth_scaled = F.interpolate(tgt_depth[s], (h, w), mode='nearest')
-                ref_depth_scaled = F.interpolate(ref_depth[s], (h, w), mode='nearest')
+            # if s == 0:
+            tgt_depth_scaled = torch.cat(tgt_depth, 0).unsqueeze(1)
+            ref_depth_scaled = torch.cat(ref_depth, 0).unsqueeze(1)
+            # else:
+            #     tgt_depth_scaled = F.interpolate(tgt_depth[s], (h, w), mode='nearest')
+            #     ref_depth_scaled = F.interpolate(ref_depth[s], (h, w), mode='nearest')
 
             photo_loss1, geometry_loss1 = compute_pairwise_loss(tgt_img_scaled, ref_img_scaled, tgt_depth_scaled, ref_depth_scaled, pose,
                                                                 intrinsic_scaled, with_ssim, with_mask, with_auto_mask, padding_mode)
@@ -151,10 +151,10 @@ def compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs):
 
         return grad_disp_x.mean() + grad_disp_y.mean()
 
-    loss = get_smooth_loss(tgt_depth[0], tgt_img)
+    loss = get_smooth_loss(torch.cat(tgt_depth,0).unsqueeze(1), tgt_img)
 
     for ref_depth, ref_img in zip(ref_depths, ref_imgs):
-        loss += get_smooth_loss(ref_depth[0], ref_img)
+        loss += get_smooth_loss(torch.cat(ref_depth,0).unsqueeze(1), ref_img)
 
     return loss
 
