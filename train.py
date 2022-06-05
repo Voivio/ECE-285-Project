@@ -14,16 +14,16 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Deep VO with Sequential Learning Optimization')
 
-parser.add_argument('--dataroot', type=str, default = 'E:\sfm_kitti\small_256',help='path to dataset')
+parser.add_argument('--dataroot', type=str, default = './data/kitti_256',help='path to dataset')
 parser.add_argument('--sequence-length', type=int, help='sequence length for training', default=3)
 parser.add_argument('--epochId', type=int, default=200, help='The number of epochs being trained')
-parser.add_argument('--batch_size', type=int, default= 2, help='The size of a train batch' )
-parser.add_argument('--valbatch_size', type=int, default= 4, help='The size of a val batch' )
+parser.add_argument('--batch_size', type=int, default= 4, help='The size of a train batch' )
+parser.add_argument('--valbatch_size', type=int, default= 1, help='The size of a val batch' )
 parser.add_argument('--initLR', type=float, default=1e-4, help='The initial learning rate')
 parser.add_argument('--multi_step_LR', action='store_true', default=False, help='The epoch to decrease learning rate')
 parser.add_argument('--seed', default=0, type=int, help='seed for random functions, and network initialization')
 parser.add_argument('--experiment', default='train', help='The path to store sampled images and models' )
-parser.add_argument('--workers', type=int, default=2, help='Number of workers for dataloader')
+parser.add_argument('--workers', type=int, default=4, help='Number of workers for dataloader')
 parser.add_argument('--reco_frq', type=int, default=100, help='Number of iterations to record loss')
 parser.add_argument('--dataset', type=str, choices=['kitti'], default='kitti', help='the dataset to train')
 parser.add_argument('--with_gt', action='store_true', default=False, help='use ground truth for validation')
@@ -135,9 +135,9 @@ def main():
             errors, error_names = validate_with_gt(args, device, val_loader, dep_net, epoch, writer)
         else:
             errors, error_names = validate_without_gt(args, device, val_loader, dep_net, pose_net, epoch, writer)
-
-        lr_scheduler.step()
-
+        if args.multi_step_LR:
+            lr_scheduler.step()
+        print("One val finished")
         decisive_error = errors[1]
         if best_error < 0:
             best_error = decisive_error
@@ -195,6 +195,7 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
             total_loss1 /= args.reco_frq
             total_loss2 /= args.reco_frq
             total_loss3 /= args.reco_frq
+            
             print(f"training loss: {total_loss:>7f}  Epoch:{epoch:>d}  Curr Iter: [{ iteration+1:>5d}]")
             # ...log the running loss
             writer.add_scalar('training mixed loss',
@@ -224,6 +225,7 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
         optimizer.step()
 
         iteration+=1
+    print('One  epoch training finished')
 
 
 def compute_depth(disp_net, tgt_img, ref_imgs):
