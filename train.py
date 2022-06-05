@@ -342,7 +342,7 @@ def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
         errors = compute_errors(depth, output_depth, args.dataset)
         total_err+=errors
 
-    total_err /= i+1
+    total_err = [err/(i+1) for err in total_err]
     for error, name in zip(total_err, error_names):
         writer.add_scalar(name, error, epoch)
 
