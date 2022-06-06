@@ -14,10 +14,10 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Deep VO with Sequential Learning Optimization')
 
-parser.add_argument('--dataroot', type=str, default = './data/kitti_256',help='path to dataset')
+parser.add_argument('--dataroot', type=str, default = 'E:\sfm_kitti\small_256',help='path to dataset')
 parser.add_argument('--sequence-length', type=int, help='sequence length for training', default=3)
 parser.add_argument('--epochId', type=int, default=200, help='The number of epochs being trained')
-parser.add_argument('--batch_size', type=int, default= 4, help='The size of a train batch' )
+parser.add_argument('--batch_size', type=int, default= 2, help='The size of a train batch' )
 parser.add_argument('--valbatch_size', type=int, default= 1, help='The size of a val batch' )
 parser.add_argument('--initLR', type=float, default=1e-4, help='The initial learning rate')
 parser.add_argument('--multi_step_LR', action='store_true', default=False, help='The epoch to decrease learning rate')
@@ -26,7 +26,7 @@ parser.add_argument('--experiment', default='train', help='The path to store sam
 parser.add_argument('--workers', type=int, default=4, help='Number of workers for dataloader')
 parser.add_argument('--reco_frq', type=int, default=100, help='Number of iterations to record loss')
 parser.add_argument('--dataset', type=str, choices=['kitti'], default='kitti', help='the dataset to train')
-parser.add_argument('--with_gt', action='store_true', default=False, help='use ground truth for validation')
+parser.add_argument('--with_gt', action='store_true', default=True, help='use ground truth for validation')
 parser.add_argument('--with_pretrain', type=bool, default = True, help='use ground truth for validation')
 parser.add_argument('--weight_decay', '--wd', default=0, type=float, metavar='W', help='weight decay')
 parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=4)
@@ -270,7 +270,7 @@ def validate_without_gt(args, device, val_loader, disp_net, pose_net, epoch, wri
         poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
 
         loss_1, loss_3 = compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, ref_depths,
-                                                         poses, poses_inv, args.num_scales, args.with_ssim,
+                                                         poses, poses_inv, args.with_ssim,
                                                          args.with_mask, args.with_auto_mask, args.padding_mode)
 
         loss_2 = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
@@ -346,6 +346,7 @@ def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
 
     total_err = [err/(i+1) for err in total_err]
     for error, name in zip(total_err, error_names):
+        print("validation "+"name: ",'error')
         writer.add_scalar(name, error, epoch)
 
     return total_err, error_names
