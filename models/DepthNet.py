@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .convnext import convnext_small
+from .convnext import convnext_small, convnext_tiny
 
 
 class ConvBlock(nn.Module):
@@ -89,7 +89,7 @@ class DepthDecoder(nn.Module):
 class DepthNet(nn.Module):
     def __init__(self, pretrained=True):
         super(DepthNet, self).__init__()
-        self.encoder = convnext_small(num_input_images = 1, pretrained=True)
+        self.encoder = convnext_tiny(num_input_images = 1, pretrained=True)
         self.decoder = DepthDecoder()
 
     def forward(self, x):

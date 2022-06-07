@@ -33,7 +33,7 @@ class PoseNet(nn.Module):
 
     def __init__(self, pretrained = True):
         super(PoseNet, self).__init__()
-        self.encoder = convnext_small(num_input_images = 2, pretrained=True)
+        self.encoder = convnext_tiny(num_input_images = 2, pretrained=True)
         self.decoder = PoseDecoder()
 
     def forward(self, img1, img2):
