@@ -70,24 +70,25 @@ def compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, re
             # ref_depth_scaled = ref_depth[s]
 
             # upsample depth
-            b, _, h, w = tgt_img.size()
-            tgt_img_scaled = tgt_img
-            ref_img_scaled = ref_img
-            intrinsic_scaled = intrinsics
-            # if s == 0:
-            tgt_depth_scaled = torch.cat(tgt_depth, 0).unsqueeze(1)
-            ref_depth_scaled = torch.cat(ref_depth, 0).unsqueeze(1)
-            # else:
-            #     tgt_depth_scaled = F.interpolate(tgt_depth[s], (h, w), mode='nearest')
-            #     ref_depth_scaled = F.interpolate(ref_depth[s], (h, w), mode='nearest')
+        # b, _, h, w = tgt_img.size()
+        tgt_img_scaled = tgt_img
+        ref_img_scaled = ref_img
+        intrinsic_scaled = intrinsics
+        # if s == 0:
+        tgt_depth_scaled = torch.cat(tgt_depth, 0).unsqueeze(1)
+        ref_depth_scaled = torch.cat(ref_depth, 0).unsqueeze(1)
+        # else:
+        #     tgt_depth_scaled = F.interpolate(tgt_depth[s], (h, w), mode='nearest')
+        #     ref_depth_scaled = F.interpolate(ref_depth[s], (h, w), mode='nearest')
 
-            photo_loss1, geometry_loss1 = compute_pairwise_loss(tgt_img_scaled, ref_img_scaled, tgt_depth_scaled, ref_depth_scaled, pose,
-                                                                intrinsic_scaled, with_ssim, with_mask, with_auto_mask, padding_mode)
-            photo_loss2, geometry_loss2 = compute_pairwise_loss(ref_img_scaled, tgt_img_scaled, ref_depth_scaled, tgt_depth_scaled, pose_inv,
-                                                                intrinsic_scaled, with_ssim, with_mask, with_auto_mask, padding_mode)
 
-            photo_loss += (photo_loss1 + photo_loss2)
-            geometry_loss += (geometry_loss1 + geometry_loss2)
+        photo_loss1, geometry_loss1 = compute_pairwise_loss(tgt_img_scaled, ref_img_scaled, tgt_depth_scaled, ref_depth_scaled, pose,
+                                                            intrinsic_scaled, with_ssim, with_mask, with_auto_mask, padding_mode)
+        photo_loss2, geometry_loss2 = compute_pairwise_loss(ref_img_scaled, tgt_img_scaled, ref_depth_scaled, tgt_depth_scaled, pose_inv,
+                                                            intrinsic_scaled, with_ssim, with_mask, with_auto_mask, padding_mode)
+
+        photo_loss += (photo_loss1 + photo_loss2)
+        geometry_loss += (geometry_loss1 + geometry_loss2)
 
     return photo_loss, geometry_loss
 

@@ -318,7 +318,7 @@ def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
     disp_net.eval()
     w1, w2, w3 = args.photo_loss_weight, args.smooth_loss_weight, args.geometry_consistency_weight
     error_names = ['abs_diff', 'abs_rel', 'sq_rel', 'a1', 'a2', 'a3']
-    total_err = [0]*6
+    total_err = np.array([0.0]*6)
     for i, (tgt_img, depth) in enumerate(val_loader):
         tgt_img = tgt_img.to(device)
         depth = depth.to(device)
@@ -342,10 +342,10 @@ def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
             b, h, w = depth.size()
             output_depth = torch.nn.functional.interpolate(output_depth.unsqueeze(1), [h, w]).squeeze(1)
         errors = compute_errors(depth, output_depth, args.dataset)
-        total_err+=errors
+        total_err+=np.array(errors)
 
-    total_err = [err/(i+1) for err in total_err]
-    for error, name in zip(total_err, error_names):
+    total_err /= i+1
+    for error, name in zip(list(total_err), error_names):
         print("validation "+"name: ",'error')
         writer.add_scalar(name, error, epoch)
 
