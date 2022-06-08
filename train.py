@@ -29,7 +29,7 @@ parser.add_argument('--dataset', type=str, choices=['kitti'], default='kitti', h
 parser.add_argument('--with_gt', action='store_true', default=True, help='use ground truth for validation')
 parser.add_argument('--with_pretrain', type=bool, default=True, help='use ground truth for validation')
 parser.add_argument('--weight_decay', '--wd', default=0, type=float, metavar='W', help='weight decay')
-parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=4)
+parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=1)
 parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W',
                     default=0.1)
 parser.add_argument('-c', '--geometry-consistency-weight', type=float, help='weight for depth consistency loss',
