@@ -14,27 +14,30 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Deep VO with Sequential Learning Optimization')
 
-parser.add_argument('--dataroot', type=str, default = 'E:\sfm_kitti\small_256',help='path to dataset')
+parser.add_argument('--dataroot', type=str, default='E:\sfm_kitti\small_256', help='path to dataset')
 parser.add_argument('--sequence-length', type=int, help='sequence length for training', default=3)
 parser.add_argument('--epochId', type=int, default=200, help='The number of epochs being trained')
-parser.add_argument('--batch_size', type=int, default= 2, help='The size of a train batch' )
-parser.add_argument('--valbatch_size', type=int, default= 1, help='The size of a val batch' )
+parser.add_argument('--batch_size', type=int, default=2, help='The size of a train batch')
+parser.add_argument('--valbatch_size', type=int, default=1, help='The size of a val batch')
 parser.add_argument('--initLR', type=float, default=1e-4, help='The initial learning rate')
 parser.add_argument('--multi_step_LR', action='store_true', default=False, help='The epoch to decrease learning rate')
 parser.add_argument('--seed', default=0, type=int, help='seed for random functions, and network initialization')
-parser.add_argument('--experiment', default='train', help='The path to store sampled images and models' )
+parser.add_argument('--experiment', default='train', help='The path to store sampled images and models')
 parser.add_argument('--workers', type=int, default=4, help='Number of workers for dataloader')
 parser.add_argument('--reco_frq', type=int, default=100, help='Number of iterations to record loss')
 parser.add_argument('--dataset', type=str, choices=['kitti'], default='kitti', help='the dataset to train')
 parser.add_argument('--with_gt', action='store_true', default=True, help='use ground truth for validation')
-parser.add_argument('--with_pretrain', type=bool, default = True, help='use ground truth for validation')
+parser.add_argument('--with_pretrain', type=bool, default=True, help='use ground truth for validation')
 parser.add_argument('--weight_decay', '--wd', default=0, type=float, metavar='W', help='weight decay')
 parser.add_argument('-p', '--photo-loss-weight', type=float, help='weight for photometric loss', metavar='W', default=4)
-parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W', default=0.1)
-parser.add_argument('-c', '--geometry-consistency-weight', type=float, help='weight for depth consistency loss', metavar='W', default=0.5)
+parser.add_argument('-s', '--smooth-loss-weight', type=float, help='weight for disparity smoothness loss', metavar='W',
+                    default=0.1)
+parser.add_argument('-c', '--geometry-consistency-weight', type=float, help='weight for depth consistency loss',
+                    metavar='W', default=0.5)
 parser.add_argument('--with-ssim', type=int, default=1, help='with ssim or not')
-parser.add_argument('--with-mask', type=int, default=1, help='with the the mask for moving objects and occlusions or not')
-parser.add_argument('--with-auto-mask', type=int,  default=0, help='with the the mask for stationary points')
+parser.add_argument('--with-mask', type=int, default=1,
+                    help='with the the mask for moving objects and occlusions or not')
+parser.add_argument('--with-auto-mask', type=int, default=0, help='with the the mask for stationary points')
 parser.add_argument('--padding-mode', type=str, choices=['zeros', 'border'], default='zeros',
                     help='padding mode for image warping : this is important for photometric differenciation when going outside target image.'
                          ' zeros will null gradients outside target image.'
@@ -43,6 +46,7 @@ parser.add_argument('--padding-mode', type=str, choices=['zeros', 'border'], def
 iteration = 0
 best_error = -1
 
+
 def main():
     args = parser.parse_args()
 
@@ -50,7 +54,7 @@ def main():
     timestamp = datetime.datetime.now().strftime("%m_%d_%H%M")
     save_path = 'run/' + args.experiment + timestamp
     writer = SummaryWriter(save_path)
-    
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.autograd.set_detect_anomaly(True)
 
@@ -67,7 +71,7 @@ def main():
     train_transform = custom_transforms.Compose([
         custom_transforms.RandomHorizontalFlip(),
         custom_transforms.RandomScaleCrop(),
-        custom_transforms.Resize((256,256)),
+        custom_transforms.Resize((256, 256)),
         custom_transforms.ArrayToTensor(),
         normalize
     ])
@@ -124,9 +128,9 @@ def main():
     ]
 
     optimizer = optim.Adam(optim_params,
-                                 weight_decay=args.weight_decay)
+                           weight_decay=args.weight_decay)
     if args.multi_step_LR:
-        lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [0.6*args.epochId, 0.8*args.epochId])
+        lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [0.6 * args.epochId, 0.8 * args.epochId])
 
     global best_error
     for epoch in range(args.epochId):
@@ -155,6 +159,7 @@ def main():
             },
             is_best)
 
+
 def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writer):
     global iteration
     w1, w2, w3 = args.photo_loss_weight, args.smooth_loss_weight, args.geometry_consistency_weight
@@ -168,14 +173,20 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
     total_loss3 = 0
 
     for i, (tgt_img, ref_imgs, intrinsics, intrinsics_inv) in enumerate(train_loader):
+        # tgt_img : (B, C, H, W)
+        # ref_images : (B, C, H, W)[], default length 2. one before tgt and one after tgt
+        # intrinsics: (B, 3, 3)
+        # intrinsics_inv: (B, 3, 3)
         tgt_img = tgt_img.to(device)
         ref_imgs = [img.to(device) for img in ref_imgs]
         intrinsics = intrinsics.to(device)
         intrinsics_inv = intrinsics_inv.to(device)
         # compute output
         tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
+        # tgt_depth: (B, 1, H, W); ref_depths: (B, 1, H, W)[], default length 2
 
         poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
+        # poses: (B, 6)[], default length 2; poses_inv: (B, 6)[], default length 2
 
         loss_1, loss_3 = compute_photo_and_geometry_loss(tgt_img, ref_imgs, intrinsics, tgt_depth, ref_depths,
                                                          poses, poses_inv, args.with_ssim,
@@ -190,17 +201,17 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
         total_loss2 += loss_2
         total_loss3 += loss_3
         # record loss
-        if (iteration+1)%args.reco_frq == 0:
+        if (iteration + 1) % args.reco_frq == 0:
             total_loss /= args.reco_frq
             total_loss1 /= args.reco_frq
             total_loss2 /= args.reco_frq
             total_loss3 /= args.reco_frq
-            
-            print(f"training loss: {total_loss:>7f}  Epoch:{epoch:>d}  Curr Iter: [{ iteration+1:>5d}]")
+
+            print(f"training loss: {total_loss:>7f}  Epoch:{epoch:>d}  Curr Iter: [{iteration + 1:>5d}]")
             # ...log the running loss
             writer.add_scalar('training mixed loss',
                               total_loss,
-                              iteration+1)
+                              iteration + 1)
 
             writer.add_scalar('training photometric loss',
                               total_loss1,
@@ -224,7 +235,7 @@ def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writ
         loss.backward()
         optimizer.step()
 
-        iteration+=1
+        iteration += 1
     print('One  epoch training finished')
 
 
@@ -237,6 +248,7 @@ def compute_depth(disp_net, tgt_img, ref_imgs):
         ref_depths.append(ref_depth)
 
     return tgt_depth, ref_depths
+
 
 def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
     poses = []
@@ -282,10 +294,10 @@ def validate_without_gt(args, device, val_loader, disp_net, pose_net, epoch, wri
         total_loss2 += loss_2
         total_loss3 += loss_3
 
-    total_loss /= i+1
-    total_loss1 /= i+1
-    total_loss2 /= i+1
-    total_loss3 /= i+1
+    total_loss /= i + 1
+    total_loss1 /= i + 1
+    total_loss2 /= i + 1
+    total_loss3 /= i + 1
     print(f"validation loss: {total_loss.item():>7f}  Epoch:{epoch:>d}")
     # ...log the val loss
     writer.add_scalar('validation mixed loss',
@@ -305,20 +317,22 @@ def validate_without_gt(args, device, val_loader, disp_net, pose_net, epoch, wri
                       epoch)
 
     writer.add_image('val Dispnet Output Normalized',
-                                    tensor2array(1/tgt_depth[0], max_value=None, colormap='magma'),
-                                    epoch)
+                     tensor2array(1 / tgt_depth[0], max_value=None, colormap='magma'),
+                     epoch)
     writer.add_image('val Depth Output',
-                                    tensor2array(tgt_depth[0], max_value=10),
-                                    epoch)
+                     tensor2array(tgt_depth[0], max_value=10),
+                     epoch)
 
-    return [total_loss, total_loss1,total_loss2,total_loss3], ['Total loss', 'Photo loss', 'Smooth loss', 'Consistency loss']
+    return [total_loss, total_loss1, total_loss2, total_loss3], ['Total loss', 'Photo loss', 'Smooth loss',
+                                                                 'Consistency loss']
+
 
 @torch.no_grad()
 def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
     disp_net.eval()
     w1, w2, w3 = args.photo_loss_weight, args.smooth_loss_weight, args.geometry_consistency_weight
     error_names = ['abs_diff', 'abs_rel', 'sq_rel', 'a1', 'a2', 'a3']
-    total_err = np.array([0.0]*6)
+    total_err = np.array([0.0] * 6)
     for i, (tgt_img, depth) in enumerate(val_loader):
         tgt_img = tgt_img.to(device)
         depth = depth.to(device)
@@ -331,25 +345,40 @@ def validate_with_gt(args, device, val_loader, disp_net, epoch, writer):
         output_disp = disp_net(tgt_img)
         output_depth = 1 / output_disp[:, 0]
 
-        writer.add_image('val Dispnet Output Normalized',
-                                    tensor2array(output_disp[0], max_value=None, colormap='magma'),
-                                    epoch)
-        writer.add_image('val Depth Output',
-                                    tensor2array(output_depth[0], max_value=10),
-                                    epoch)
+        if i == 0:
+            # only write the result once for each validation
+            if epoch == 0:
+                writer.add_image('val Input', tensor2array(tgt_img[0]), 0)
+                depth_to_show = depth[0]
+                writer.add_image('val target Depth',
+                                 tensor2array(depth_to_show, max_value=10),
+                                 epoch)
+                depth_to_show[depth_to_show == 0] = 1000
+                disp_to_show = (1 / depth_to_show).clamp(0, 10)
+                writer.add_image('val target Disparity Normalized',
+                                 tensor2array(disp_to_show, max_value=None, colormap='magma'),
+                                 epoch)
+
+            writer.add_image('val Dispnet Output Normalized',
+                             tensor2array(output_disp[0], max_value=None, colormap='magma'),
+                             epoch)
+            writer.add_image('val Depth Output',
+                             tensor2array(output_depth[0], max_value=10),
+                             epoch)
 
         if depth.nelement() != output_depth.nelement():
             b, h, w = depth.size()
             output_depth = torch.nn.functional.interpolate(output_depth.unsqueeze(1), [h, w]).squeeze(1)
         errors = compute_errors(depth, output_depth, args.dataset)
-        total_err+=np.array(errors)
+        total_err += np.array(errors)
 
-    total_err /= i+1
+    total_err /= i + 1
     for error, name in zip(list(total_err), error_names):
-        print("validation "+"name: ",'error')
+        print("validation " + f"{name}: ", f'{error}')
         writer.add_scalar(name, error, epoch)
 
     return total_err, error_names
+
 
 if __name__ == '__main__':
     main()
