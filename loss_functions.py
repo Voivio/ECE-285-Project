@@ -205,3 +205,30 @@ def compute_errors(gt, pred, dataset):
 
     return [metric.item() / batch_size for metric in [abs_diff, abs_rel, sq_rel, a1, a2, a3]]
 
+
+def compute_loss_with_gt(gt, pred, dataset="kitti"):
+    abs_diff, abs_rel, sq_rel, a1, a2, a3 = 0, 0, 0, 0, 0, 0
+    batch_size, h, w = gt.size()
+
+    if dataset == 'kitti':
+        crop_mask = gt[0] != gt[0]
+        y1, y2 = int(0.40810811 * gt.size(1)), int(0.99189189 * gt.size(1))
+        x1, x2 = int(0.03594771 * gt.size(2)), int(0.96405229 * gt.size(2))
+        crop_mask[y1:y2, x1:x2] = 1
+        max_depth = 80
+
+    for current_gt, current_pred in zip(gt, pred):
+        valid = (current_gt > 0.1) & (current_gt < max_depth)
+        valid = valid & crop_mask
+
+        valid_gt = current_gt[valid]
+        valid_pred = current_pred[valid].clamp(1e-3, max_depth)
+
+        valid_pred = valid_pred * torch.median(valid_gt) / torch.median(valid_pred)
+
+        # abs_diff += torch.mean(torch.abs(valid_gt - valid_pred))
+        abs_rel += torch.mean(torch.abs(valid_gt - valid_pred) / valid_gt)
+
+        # sq_rel += torch.mean(((valid_gt - valid_pred) ** 2) / valid_gt)
+
+    return abs_rel.item() / batch_size

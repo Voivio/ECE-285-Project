@@ -33,9 +33,9 @@ class ValidationSet(data.Dataset):
         transform functions must take in a list a images and a numpy array which can be None
     """
 
-    def __init__(self, root, transform=None, dataset='kitti'):
+    def __init__(self, root, transform=None, train=False, dataset='kitti'):
         self.root = Path(root)
-        scene_list_path = self.root/'val.txt'
+        scene_list_path = self.root/'train.txt' if train else self.root/'val.txt'
         self.scenes = [self.root/folder.replace("\n", "") for folder in open(scene_list_path)]
         self.transform = transform
         self.dataset = dataset
