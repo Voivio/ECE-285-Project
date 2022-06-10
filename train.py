@@ -6,7 +6,7 @@ import datetime
 import models
 from datasets import *
 import numpy as np
-from utils import tensor2array, save_checkpoint
+from utils import tensor2array, save_checkpoint, save_single_network_optimizer_lr_scheduler
 from loss_functions import compute_smooth_loss, compute_photo_and_geometry_loss, compute_errors
 from torch.utils.tensorboard import SummaryWriter
 
@@ -42,6 +42,10 @@ parser.add_argument('--padding-mode', type=str, choices=['zeros', 'border'], def
                     help='padding mode for image warping : this is important for photometric differenciation when going outside target image.'
                          ' zeros will null gradients outside target image.'
                          ' border will only null gradients of the coordinate outside (x or y)')
+parser.add_argument('--depth_net_checkpoint', type=str, default="", help='path to depth net checkpoint')
+parser.add_argument('--pose_net_checkpoint', type=str, default="", help='path to pose net checkpoint')
+
+parser.add_argument('--resume_optimizer', type=bool, default=False, help='resume the state of optimizer and error training or not')
 
 iteration = 0
 best_error = -1
@@ -133,6 +137,24 @@ def main():
         lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [0.6 * args.epochId, 0.8 * args.epochId])
 
     global best_error
+
+    # resume model with existing weights
+    if args.depth_net_checkpoint:
+        print("resuming depth net checkpoint...")
+        weights = torch.load(args.depth_net_checkpoint)
+        dep_net.load_state_dict(weights['state_dict'])
+
+    if args.pose_net_checkpoint:
+        print("resuming pose net checkpoint...")
+        weights = torch.load(args.pose_net_checkpoint)
+        pose_net.load_state_dict(weights['state_dict'])
+
+    if args.resume_optimizer:
+        optimizer.load_state_dict(save_path + 'optimizer.pth.tar')
+        best_error = np.load(save_path + "best_error.npy")
+        if args.multi_step_LR:
+            lr_scheduler.load_state_dict(save_path + 'lr_scheduler.pth.tar')
+
     for epoch in range(args.epochId):
         train_loss = train(args, device, train_loader, dep_net, pose_net, optimizer, epoch, writer)
         if args.with_gt:
@@ -158,6 +180,19 @@ def main():
                 'state_dict': pose_net.module.state_dict()
             },
             is_best)
+        save_single_network_optimizer_lr_scheduler(
+            save_path, None, "",
+            {
+                'epoch': epoch + 1,
+                'state_dict': optimizer.state_dict()
+            }, {
+                'epoch': epoch + 1,
+                'state_dict': lr_scheduler.state_dict()
+            },
+            is_best)
+
+        if is_best:
+            np.save(save_path+"best_error.npy", best_error)
 
 
 def train(args, device, train_loader, disp_net, pose_net, optimizer, epoch, writer):
