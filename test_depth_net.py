@@ -38,7 +38,7 @@ def load_tensor_image(filename, args):
 def main():
     args = parser.parse_args()
 
-    disp_net = models.DepthNet(args.with_pretrain).to(device)
+    disp_net = models.DepthNet().to(device)
     weights = torch.load(args.pretrained_dispnet)
     disp_net.load_state_dict(weights['state_dict'])
     disp_net.eval()
@@ -49,7 +49,7 @@ def main():
         with open(args.dataset_list, 'r') as f:
             test_files = list(f.read().splitlines())
     else:
-        test_files = sorted(dataset_dir.files('*.png'))
+        test_files = sorted(dataset_dir.files('*.jpg'))
 
     print('{} files to test'.format(len(test_files)))
 

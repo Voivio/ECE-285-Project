@@ -231,4 +231,4 @@ def compute_loss_with_gt(gt, pred, dataset="kitti"):
 
         # sq_rel += torch.mean(((valid_gt - valid_pred) ** 2) / valid_gt)
 
-    return abs_rel.item() / batch_size
+    return abs_rel / batch_size
