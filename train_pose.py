@@ -234,7 +234,7 @@ def validate_with_gt(args, device, val_loader, pose_net, epoch, writer):
         pred = torch.cat(poses, -1) # pred : (B, 24) by default
         error = (pred - gt_pose_with_inv).pow(2).sum()
 
-        total_err += np.array(error)
+        total_err += np.array(error.cpu())
 
     total_err /= i + 1
     for error, name in zip(list(total_err), error_names):
