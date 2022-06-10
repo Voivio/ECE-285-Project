@@ -8,7 +8,7 @@ from datasets import *
 from datasets.validation_folders import ValidationSet
 
 import numpy as np
-from utils import tensor2array, save_checkpoint, save_optimizer_lr_scheduler
+from utils import tensor2array, save_checkpoint, save_single_network_optimizer_lr_scheduler
 from loss_functions import compute_smooth_loss, compute_photo_and_geometry_loss, compute_errors, compute_loss_with_gt
 from torch.utils.tensorboard import SummaryWriter
 
@@ -77,6 +77,7 @@ def main():
     train_set = ValidationSet(
         args.dataroot,
         transform=train_transform,
+        train=True,
         dataset=args.dataset
     )
     val_set = ValidationSet(
@@ -112,7 +113,7 @@ def main():
 
     global best_error
 
-    if args.checkpoint_path:
+    if args.resume_checkpoint:
         print("resuming existing checkpoint...")
         dep_net.load_state_dict(save_path + 'disp_net_checkpoint.pth.tar')
         optimizer.load_state_dict(save_path + 'optimizer.pth.tar')
@@ -132,19 +133,21 @@ def main():
         # remember lowest error and save checkpoint
         is_best = decisive_error < best_error
         best_error = min(best_error, decisive_error)
-        save_checkpoint(
-            save_path, {
+
+        save_single_network_optimizer_lr_scheduler(
+            save_path,
+            {
                 'epoch': epoch + 1,
                 'state_dict': dep_net.module.state_dict()
-            }, is_best, filename="depth_only_cp.pth.tar")
-        save_optimizer_lr_scheduler(
-            save_path, {
+            },
+            "depth_net",
+            {
                 'epoch': epoch + 1,
                 'state_dict': optimizer.state_dict()
             }, {
                 'epoch': epoch + 1,
                 'state_dict': lr_scheduler.state_dict()
-            },
+            } if args.multi_step_LR else None,
             is_best)
 
         if is_best:

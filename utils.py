@@ -66,9 +66,23 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
                             save_path + '{}_model_best.pth.tar'.format(prefix))
 
 
-def save_optimizer_lr_scheduler(save_path, optim_state, lr_state, is_best):
-    file_prefixes = ['optimizer', 'lr_scheduler']
-    states = [optim_state, lr_state]
+def save_single_network_optimizer_lr_scheduler(save_path, network_state, network_prefix, optim_state, lr_state, is_best):
+    """Assign states to None to not save certain state_dict"""
+    file_prefixes = []
+    states = []
+
+    if network_state is not None:
+        file_prefixes.append(network_prefix + "_checkpoint")
+        states.append(network_state)
+
+    if optim_state is not None:
+        file_prefixes.append("optimizer")
+        states.append(optim_state)
+
+    if lr_state is not None:
+        file_prefixes.append("lr_scheduler")
+        states.append(lr_state)
+
     for (prefix, state) in zip(file_prefixes, states):
         torch.save(state, save_path + '{}.pth.tar'.format(prefix))
 
