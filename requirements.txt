@@ -1,0 +1,9 @@
+torch
+torchvision
+numpy~=1.22.4
+timm
+path
+matplotlib~=3.5.2
+imageio~=2.19.2
+tqdm~=4.64.0
+pillow~=9.1.1

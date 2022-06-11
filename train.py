@@ -142,12 +142,12 @@ def main():
     if args.depth_net_checkpoint:
         print("resuming depth net checkpoint...")
         weights = torch.load(args.depth_net_checkpoint)
-        dep_net.load_state_dict(weights['state_dict'])
+        dep_net.module.load_state_dict(weights['state_dict'])
 
     if args.pose_net_checkpoint:
         print("resuming pose net checkpoint...")
         weights = torch.load(args.pose_net_checkpoint)
-        pose_net.load_state_dict(weights['state_dict'])
+        pose_net.module.load_state_dict(weights['state_dict'])
 
     if args.resume_optimizer:
         optimizer.load_state_dict(save_path + 'optimizer.pth.tar')
